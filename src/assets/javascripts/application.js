@@ -78,6 +78,39 @@ export const initialize = config => {
     }
   }).listen()
 
+  // TODO: this should also wait on DOMContentLoaded, but only for the first time
+
+  /* Fetch all internal links via XHR and inject contents into the body */
+  const links = document.querySelectorAll("[href]")
+  Array.prototype.forEach.call(links, link => {
+    if (link.getAttribute("href").match(/:\/\//) ||
+        link.getAttribute("href").match(/#[^\/]+$/))
+      return
+
+    /* Relative URL, load contents */
+    link.addEventListener("click", ev => {
+      ev.preventDefault()
+      return fetch(link.href, {
+        credentials: "same-origin"
+      })
+        .then(response => response.text())
+        .then(data => {
+          const html = data.replace(/\r?\n|\r/g, " ")
+          const body = html.match(/<body[^>]*>(.*?)<\/body>/gi)
+          const title = html.match(/<title[^>]*>(.*?)<\/title>/gi)
+
+          /* Replace body contents and scroll to top */
+          history.pushState(null, "", link.getAttribute("href"))
+          document.body.innerHTML = body.pop().replace(/<\/?body[^>]*>/gi, "")
+          document.title = title.pop().replace(/<\/?title[^>]*>/gi, "")
+          window.scrollTo(0, 0)
+
+          initialize(config)
+
+        })
+    })
+  })
+
   /* Component: sidebar container */
   if (!Modernizr.csscalc)
     new Material.Event.MatchMedia("(min-width: 960px)",
